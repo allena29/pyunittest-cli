@@ -3,6 +3,7 @@ import traceback
 import argparse
 import time
 import os
+import re
 import sys
 from colorama import Fore
 from colorama import Style
@@ -20,9 +21,7 @@ class testnavigator(Cmd):
         self.allow_redirection = False
         self.debug = True
 
-        self.level = []
-        self.tests = []
-        self.test_directory = ""
+        self.testcases = []
 
         # To remove built-in commands entirely, delete their "do_*" function from the
         # cmd2.Cmd class
@@ -86,47 +85,85 @@ class testnavigator(Cmd):
         else:
             return True
 
-    def select_directory(self, args):
-        os.chdir(args)
-        self.test_directory = args
-        self.tests = []
-        print os.getcwd()
-        for test in os.listdir('./'):
-            if test[0:5] == 'test_' and test[-3:] == '.py':
-                self.tests.append(test[6:-3])
-        
-        self.level.append(args)
-        self.prompt = args + '% '
-
-        self.do_select = self._do_select
-        self.complete_select = self._complete_select
-
-        print '%s/%s' %(self.test_directory, self.tests)
-
-    def _complete_select(self, text, line, begidx, endidx):
+    def complete_run(self, text, line, begidx, endidx):
         if len(text.split()) == 0:
             return self.tests
-
+        
         result = []
         for item in self.tests:
             if item[0:len(text)] == text:
                 result.append(item)
+        result.sort()
         return result
 
-    def _do_select(self, args):
+
+    def complete_select(self, text, line, begidx, endidx):
+        if len(text.split()) == 0:
+            return self.testcases
+
+        result = []
+        for item in self.testcases:
+            if item[0:len(text)] == text:
+                result.append(item)
+        result.sort()
+        return result
+
+    def do_select(self, args):
         'Select a File containing python unittests'
-        print ('xxx')
+
+        if not os.path.exists('test_%s.py' % (args)):
+            self.xterm_message('Unable to open test case %s from %s' %
+                               (args, os.getcwd()), Fore.RED, newline=True)
+            return False
+
+        self.xterm_message('Loading file....', Fore.YELLOW) 
+        found_import = False
+        found_class = None
+        self.tests = []
+
+        regex_import = re.compile('^import unittest\s*$')
+        regex_class = re.compile('^class (\S+)\(unittest\.unittest\):\s*$')
+        regex_test = re.compile('^ {4}def test_([^\(]+)\(.*:\s*$')
+        with open('test_%s.py' % (args)) as file:
+            line = file.readline()
+            while line != "":
+                if regex_import.match(line):
+                    found_import = True
+                if regex_class.match(line) and found_class is None:
+                    found_class = regex_class.sub('\g<1>', line)
+                elif regex_class.match(line) and found_class is not None:
+                    self.xterm_message('Constraint: only one unittest class supported.',
+                                       Fore.RED, oldmsg='Loading file....', newline=True) 
+                    return False
+                if regex_test.match(line):
+                    self.tests.append(regex_test.sub('\g<1>', line))
+                line = file.readline()
+        self.prompt = '%s(%s.%s)%% ' % (self.testdir, args, found_class)
+
+        self.xterm_message('Loaded %s test(s)' % (len(self.testcases)), Fore.GREEN, oldmsg='Loading file....', newline=True) 
+
+
+    def do_run(self, args):
+        'Run a test'
+        print ('dotest called', args)
 
 
 if __name__ == '__main__':
     cli = testnavigator()
     if len(sys.argv) < 2:
-        testnavigator.xterm_message("""Usage: %s <directory>""" % (sys.argv[0]), Fore.RED, newline=True)                    
+        testnavigator.xterm_message("""Usage: %s <directory>""" % (sys.argv[0]), Fore.RED, newline=True)
         sys.exit(1)
     if not os.path.exists(sys.argv[1]):
-        testnavigator.xterm_message("""Usage: %s <directory>\n\n%s does not exist""" % 
-                                    (sys.argv[0], sys.argv[1]), Fore.RED, newline=True)                    
+        testnavigator.xterm_message("""Usage: %s <directory>\n\n%s does not exist""" %
+                                    (sys.argv[0], sys.argv[1]), Fore.RED, newline=True)
         sys.exit(1)
-    os.chdir(sys.argv[1])
-    sys.argv = [sys.argv[0]]
+    testdir = sys.argv[1]
+    os.chdir(testdir)
+    sys.argv.pop(1)
+    cli.testdir = testdir
+    cli.testcases = []
+    for test in os.listdir('./'):
+        if test[0:5] == 'test_' and test[-3:] == '.py':
+            cli.testcases.append(test[5:-3])
+    cli.prompt = testdir + '% '
     cli.cmdloop(intro='Python Unittest Navigator')
