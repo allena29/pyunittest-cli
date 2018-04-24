@@ -1,0 +1,14 @@
+colorama==0.3.9
+cmd2==0.8.5
+contextlib2==0.5.5
+coverage==4.5.1
+enum34==1.1.6
+funcsigs==1.0.2
+mock==2.0.0
+nose2==0.7.4
+pbr==4.0.2
+pyparsing==2.2.0
+pyperclip==1.6.0
+six==1.11.0
+subprocess32==3.2.7
+wcwidth==0.1.7
