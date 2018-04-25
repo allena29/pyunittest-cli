@@ -94,10 +94,10 @@ class testnavigator(Cmd):
             return []
 
         if len(text.split()) == 0:
-            return self.tests[self.testcase]
+            return self.tests[self.testcase]['tests']
 
         result = []
-        for item in self.tests:
+        for item in self.tests[self.testcase]['tests']:
             if item[0:len(text)] == text:
                 result.append(item)
         result.sort()
@@ -210,6 +210,20 @@ if __name__ == '__main__':
                                     (sys.argv[0], sys.argv[1]), Fore.RED, newline=True)
         sys.exit(1)
     testdir = sys.argv[1]
+
+    # This should be an option.
+    # recursively loop arounf each sub directory adding it to the path
+    def add_to_sys_path(pwd):
+        have_py = False
+        for filething in os.listdir(pwd):            
+            if os.path.isdir(pwd + '/' + filething) and not filething[0] == '.':
+                add_to_sys_path(pwd + '/' + filething)
+            elif filething[-3:] == '.py':
+                have_py = True
+        if have_py:
+            sys.path.append(pwd)
+    add_to_sys_path(os.getcwd())
+
     os.chdir(testdir)
     cli.base_dir = os.getcwd()
     sys.argv.pop(1)
