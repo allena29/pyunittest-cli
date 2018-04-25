@@ -1,6 +1,8 @@
-# pyunittest-cli
+# pyunittest-cli (and behave)
 
 This utility is intended to simplify testing with [python's unittest](https://docs.python.org/2/library/unittest.html) by providing a simple command line interface. A key goal of the command line interface is to provide a developer fine grained control over which test cases they wish to execute.
+
+Introduced in this version is the ability to test [behave](https://github.com/behave/behave) behaviour driven feature files.
 
 The python library `Cmd2` provides the interface.
 
@@ -100,5 +102,9 @@ test(zzz.x)%
 - Extend to behave test cases
 - Run pylint tests
 - ~~Allow to run all testcases files without having to select an individual file~~
-- Trends
+- Track failures so we can run specific failures
+- Ordering - influence default test order
+- Behave files - filter to run certain tags (default answer should be persisted)
+- Trends (store past results to show this run X failed since last tun, Y fixed since last run)
 - Some fuzzy logic to try decide which tests cases are most likely to fail
+- Fix auto-complete so we cannot do 'select X X X X X X X'

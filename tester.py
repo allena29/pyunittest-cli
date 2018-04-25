@@ -99,6 +99,12 @@ class testnavigator(Cmd):
         return result
 
     def complete_select(self, text, line, begidx, endidx):
+        """
+        This method runs when the CLI wants to tab-complete a 'select' command.
+
+        We will receive text (which could be blank) or contain a substring
+        and line which will include the full line including the command itself.
+        """
         if len(text.split()) == 0:
             return self.testcases_filesys
 
@@ -119,7 +125,6 @@ class testnavigator(Cmd):
             return False
 
         self.xterm_message('Loading file....', Fore.YELLOW)
-
         self._select_test_cases_from_directory(args)
 
     def _select_test_cases_from_directory(self, args):
@@ -225,8 +230,22 @@ if __name__ == '__main__':
     sys.path.insert(0, cli.base_dir)
     cli.testdir = testdir
     cli.testcases_filesys = []
+    cli.python_unittest = False
+    cli.python_behave = False
     for test in os.listdir('./'):
         if test[0:5] == 'test_' and test[-3:] == '.py':
             cli.testcases_filesys.append(test[5:-3])
+            cli.python_unittest = True
+        if test[-8:] == '.feature':
+            cli.testcases_filesys.append(test[:-8])
+            cli.python_behave = True
+
+    if cli.python_behave and cli.python_unittest:
+        testnavigator.xterm_message("""Directory can only contain unittest's or feature files""", Fore.RED, newline=True)
+        sys.exit(1)
+    if not cli.python_behave and not cli.python_unittest:
+        testnavigator.xterm_message("""Directory contains no unittest's or feature files""", Fore.RED, newline=True)
+        sys.exit(1)
+
     cli.prompt = testdir + '% '
     cli.cmdloop(intro='Python Unittest Navigator')
