@@ -90,6 +90,7 @@ test(zzz.x)%
 
 
 
+
 #### TODO:
 
 1. Extend to provide a basic summary after running and ~~provide a really quick/easy way of just re-running failed test cases one by one.~~
@@ -98,6 +99,6 @@ test(zzz.x)%
 - Extended to inspect the results from the runner 
 - Extend to behave test cases
 - Run pylint tests
-- Allow to run all testcases files without having to select an individual file
+- ~~Allow to run all testcases files without having to select an individual file~~
 - Trends
 - Some fuzzy logic to try decide which tests cases are most likely to fail
