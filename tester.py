@@ -1,5 +1,7 @@
 #!/usr/bin/env python2.7
 import traceback
+import importlib
+import unittest
 import argparse
 import time
 import os
@@ -122,8 +124,9 @@ class testnavigator(Cmd):
         self.tests = []
 
         regex_import = re.compile('^import unittest\s*$')
-        regex_class = re.compile('^class (\S+)\(unittest\.unittest\):\s*$')
+        regex_class = re.compile('^class (\S+)\(unittest\.TestCase\):\s*$')
         regex_test = re.compile('^ {4}def test_([^\(]+)\(.*:\s*$')
+        self.testcase_file = args
         with open('test_%s.py' % (args)) as file:
             line = file.readline()
             while line != "":
@@ -138,14 +141,36 @@ class testnavigator(Cmd):
                 if regex_test.match(line):
                     self.tests.append(regex_test.sub('\g<1>', line))
                 line = file.readline()
-        self.prompt = '%s(%s.%s)%% ' % (self.testdir, args, found_class)
 
+        if found_class is None:
+            self.xterm_message('Unable to find class from the testcase file',
+                               Fore.RED, oldmsg='Loading file....', newline=True) 
+            return False
+            
+        self.prompt = '%s(%s.%s)%% ' % (self.testdir, args, found_class)
+        self.found_class = found_class
         self.xterm_message('Loaded %s test(s)' % (len(self.testcases)), Fore.GREEN, oldmsg='Loading file....', newline=True) 
 
 
     def do_run(self, args):
-        'Run a test'
-        print ('dotest called', args)
+        'Run a test (or set of tests)'
+        tests_to_run = []
+        for item in self.tests:
+            if item[0:len(args)] == args:
+                tests_to_run.append(item)
+
+
+        msg = 'Running %s tests(s)...      ' % (len(tests_to_run))
+        self.xterm_message(msg, Fore.MAGENTA, oldmsg=msg, newline=True)
+        module = importlib.import_module('test_%s' % (self.testcase_file))
+        class__ = '%s' %(self.found_class)
+        class_ = getattr(module, class__)
+
+        suite = unittest.TestSuite()
+        for item in tests_to_run:
+            suite.addTest(class_('test_%s' % (item)))
+
+        unittest.TextTestRunner(verbosity=999).run(suite)
 
 
 if __name__ == '__main__':
@@ -159,7 +184,9 @@ if __name__ == '__main__':
         sys.exit(1)
     testdir = sys.argv[1]
     os.chdir(testdir)
+    cli.base_dir = os.getcwd()
     sys.argv.pop(1)
+    sys.path.insert(0, cli.base_dir)
     cli.testdir = testdir
     cli.testcases = []
     for test in os.listdir('./'):
