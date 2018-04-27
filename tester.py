@@ -82,12 +82,7 @@ class testnavigator(Cmd):
 
     def do_exit(self, args):
         'Exit the navigator - or move up a level of the context'
-        if len(self.level) == 2:
-            print ('exit to directory')
-        elif len(self.level) == 1:
-            print ('exit to top level')
-        else:
-            return True
+        return True
 
     def complete_run(self, text, line, begidx, endidx):
         if not self.testcase:
