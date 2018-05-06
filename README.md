@@ -7,6 +7,21 @@ Introduced in this version is the ability to test [behave](https://github.com/be
 The python library `Cmd2` provides the interface.
 
 
+## Basic Usage:
+
+```bash
+~/pyunittest-cli/test.py <test-case-dir>
+```
+
+
+It is possible to chain commands on the command line, e.g.
+
+```bash
+~/pyunittest-cli/tester.py ./test "select datastore" "workingdir ../" "run"
+```
+
+
+
 ## Example
 
 The interface is started by running the script - a single argument is required which specifies the directory where the test cases are stored.
@@ -89,6 +104,10 @@ test(zzz.x)%
 ```
 
 
+
+## Options
+
+- `workingdir <>` set's the working directory to a specified path.
 
 
 

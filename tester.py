@@ -26,6 +26,8 @@ class testnavigator(Cmd):
         self.testcae = None
         self.testcases = []
         self.tests = {}
+        self.workingdir = None
+        self.test_dir = None
 
         # To remove built-in commands entirely, delete their "do_*" function from the
         # cmd2.Cmd class
@@ -101,6 +103,14 @@ class testnavigator(Cmd):
                 result.append(item)
         result.sort()
         return result
+
+    def do_workingdir(self, args):
+        'Set the working directory when running a test'
+        if os.path.exists(args):
+            self.workingdir = args
+            self.test_dir = os.getcwd()
+        else:
+            raise RuntimeError('Unable to change to working directory')
 
     def complete_select(self, text, line, begidx, endidx):
         """
@@ -208,7 +218,8 @@ class testnavigator(Cmd):
 
     def do_run(self, args):
         'Run a test (or set of tests)'
-
+        if self.workingdir:
+            os.chdir(self.workingdir)
         try:
             if self.python_unittest:
                 self._execute_unit_tests(args)
@@ -216,6 +227,8 @@ class testnavigator(Cmd):
                 self._execute_feature_files(args)
         except Exception as err:
             self._error()
+        if self.workingdir:
+            os.chdir(self.test_dir)
         self._ok()
     def _execute_feature_files(self, args):
         print ' feature files, args',args
