@@ -108,3 +108,4 @@ test(zzz.x)%
 - Trends (store past results to show this run X failed since last tun, Y fixed since last run)
 - Some fuzzy logic to try decide which tests cases are most likely to fail
 - Fix auto-complete so we cannot do 'select X X X X X X X'
+- ~~Recursively include tests/features from sub-directories too.~~

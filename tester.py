@@ -67,6 +67,10 @@ class testnavigator(Cmd):
         print('[error][%s]' % (time.ctime()))
 
     @staticmethod
+    def truncate_prompt(prompt):
+        return '/'.join(prompt.split('/')[-3:])
+
+    @staticmethod
     def xterm_message(msg, colour, oldmsg="", newline=False):
         if len(oldmsg):
             sys.stdout.write('\033[%sD' % (len(oldmsg)))
@@ -119,17 +123,58 @@ class testnavigator(Cmd):
         'Select a File containing python unittests'
         self.tests = {}
 
-        if not os.path.exists('test_%s.py' % (args)):
-            self.xterm_message('Unable to open test case %s from %s' %
-                               (args, os.getcwd()), Fore.RED, newline=True)
-            return False
+        if self.python_unittest:
+            if not os.path.exists('test_%s.py' % (args)):
+                self.xterm_message('Unable to open test case %s from %s' %
+                                   (args, os.getcwd()), Fore.RED, newline=True)
+                return False
 
-        self.xterm_message('Loading file....', Fore.YELLOW)
-        self._select_test_cases_from_directory(args)
+            self.xterm_message('Loading file....', Fore.YELLOW)
+            self._select_test_cases_from_directory(args)
+
+        if self.python_behave:
+            if not os.path.exists('%s.feature' % (args)):
+                self.xterm_message('Unable to open feature %s from %s' %
+                                   (args, os.getcwd()), Fore.RED, newline=True)
+                return False
+
+            self.xterm_message('Loading file....', Fore.YELLOW)
+            self._select_feature_from_directory(args)
+
+    def _select_feature_from_directory(self, args):
+        self.testcase = args
+        # in the case of a scenario a test is a scenario
+        self.tests[args] = {'class': None, 'feature': None, 'tests': [], 'tags': {}}
+
+        feature = None
+        lasttag = None
+        regex_feature = re.compile('^Feature: (\S.*)')
+        regex_scenario = re.compile('^\s*Scenario: (\S.*)')
+        regex_tag = re.compile('^\s*@(\S+)\s*$')
+
+        with open('%s.feature' % (args)) as file:
+            line = file.readline()
+            while line != "":
+                if regex_feature.match(line):
+                    feature = regex_feature.sub('\g<1>', line).rstrip()
+                    self.tests[self.testcase]['feature'] = feature
+                if regex_scenario.match(line):
+                    scenario = regex_scenario.sub('\g<1>', line).rstrip()
+                    self.tests[self.testcase]['tests'].append(scenario)
+                    if lasttag:
+                        self.tests[self.testcase]['tags'][scenario] = lasttag
+                lasttag = None
+                if regex_tag.match(line):
+                    lasttag = regex_tag.sub('\g<1>', line).rstrip()
+                line = file.readline()
+
+        self.prompt = 'tester(%s.%s.%s)%% ' % (self.truncate_prompt(self.testdir), args, feature)
+        self.xterm_message('Loaded %s test(s) from %s' % (len(self.tests[args]['tests']), args),
+                           Fore.GREEN, oldmsg='Loading file....', newline=True)
 
     def _select_test_cases_from_directory(self, args):
         self.testcase = args
-        self.tests[args] = {'class': None, 'tests': []}
+        self.tests[args] = {'class': None, 'feature': None, 'tests': [], 'tags': {}}
         regex_import = re.compile('^import unittest\s*$')
         regex_class = re.compile('^class (\S+)\(unittest\.TestCase\):\s*$')
         regex_test = re.compile('^ {4}def test_([^\(]+)\(.*:\s*$')
@@ -156,7 +201,7 @@ class testnavigator(Cmd):
                                Fore.RED, oldmsg='Loading file....', newline=True)
             return False
 
-        self.prompt = '%s(%s.%s)%% ' % (self.testdir, args, found_class)
+        self.prompt = 'tester(%s.%s.%s)%% ' % (self.truncate_prompt(self.testdir), args, found_class)
         self.tests[args]['class'] = found_class
         self.xterm_message('Loaded %s test(s) from %s' % (len(self.tests[args]['tests']), args),
                            Fore.GREEN, oldmsg='Loading file....', newline=True)
@@ -164,6 +209,18 @@ class testnavigator(Cmd):
     def do_run(self, args):
         'Run a test (or set of tests)'
 
+        try:
+            if self.python_unittest:
+                self._execute_unit_tests(args)
+            elif self.python_behave:
+                self._execute_feature_files(args)
+        except Exception as err:
+            self._error()
+        self._ok()
+    def _execute_feature_files(self, args):
+        print ' feature files, args',args
+
+    def _execute_unit_tests(self, args):
         if len(self.tests) == 0:
             for test in os.listdir('./'):
                 if test[0:5] == 'test_' and test[-3:] == '.py':
@@ -232,13 +289,21 @@ if __name__ == '__main__':
     cli.testcases_filesys = []
     cli.python_unittest = False
     cli.python_behave = False
-    for test in os.listdir('./'):
-        if test[0:5] == 'test_' and test[-3:] == '.py':
-            cli.testcases_filesys.append(test[5:-3])
-            cli.python_unittest = True
-        if test[-8:] == '.feature':
-            cli.testcases_filesys.append(test[:-8])
-            cli.python_behave = True
+
+    def add_to_test_path(cli, pwd):
+        print 'add_to_test_path',pwd
+        for test in os.listdir(pwd):
+            if os.path.isdir(pwd + test) and not test[0] == '.':
+                add_to_test_path(cli, pwd + '/' + test)
+            elif test[0:5] == 'test_' and test[-3:] == '.py':
+                test_name = pwd + '/' + test[5:-3]
+                cli.testcases_filesys.append(test_name.replace('./', ''))
+                cli.python_unittest = True
+            elif test[-8:] == '.feature':
+                feature_name = pwd + '/' + test[:-8]
+                cli.testcases_filesys.append(feature_name.replace('./', ''))
+                cli.python_behave = True
+    add_to_test_path(cli, '.')
 
     if cli.python_behave and cli.python_unittest:
         testnavigator.xterm_message("""Directory can only contain unittest's or feature files""", Fore.RED, newline=True)
@@ -247,5 +312,5 @@ if __name__ == '__main__':
         testnavigator.xterm_message("""Directory contains no unittest's or feature files""", Fore.RED, newline=True)
         sys.exit(1)
 
-    cli.prompt = testdir + '% '
+    cli.prompt = 'tester(' + cli.truncate_prompt(testdir) + ')% '
     cli.cmdloop(intro='Python Unittest Navigator')
