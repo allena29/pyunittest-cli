@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 import traceback
 import importlib
 import unittest
@@ -221,19 +221,21 @@ class testnavigator(Cmd):
         'Run a test (or set of tests)'
         if self.workingdir:
             os.chdir(self.workingdir)
+            sys.path.insert(0, self.workingdir)
         try:
             if self.python_unittest:
                 self._execute_unit_tests(args)
             elif self.python_behave:
                 self._execute_feature_files(args)
         except Exception as err:
+            self.xterm_message(traceback.format_exc(), Fore.RED, newline=True, style=Style.DIM)
             self._error()
         if self.workingdir:
             os.chdir(self.test_dir)
         self._ok()
 
     def _execute_feature_files(self, args):
-        print ' feature files, args', args
+        print(' feature files, args', args)
 
     def _execute_unit_tests(self, args):
         if len(self.tests) == 0:
@@ -253,22 +255,24 @@ class testnavigator(Cmd):
                         tests_to_run.append(item)
 
                 msg = 'Running %s tests(s)...      ' % (len(tests_to_run))
+                module = None
                 self.xterm_message(msg, Fore.MAGENTA, newline=True)
                 try:
                     module = importlib.import_module('test_%s' % (testcase))
                 except ImportError as err:
                     self.xterm_message('Unable to import testcase file - perhaps python is battered and bruised :-(\n%s' %
-                                       (err.message), Fore.RED, newline=True)
+                                       (str(err)), Fore.RED, newline=True)
                     self.xterm_message(traceback.format_exc(), Fore.RED, newline=True, style=Style.DIM)
 
-                try:
-                    class__ = '%s' % (self.tests[testcase]['class'])
-                    class_ = getattr(module, class__)
-                    for item in tests_to_run:
-                        suite.addTest(class_('test_%s' % (item)))
-                except AttributeError as err:
-                    self.xterm_message('Unable to instantiate class - perhaps there is no valid test case defined in this file :-(\n%s' %
-                                       (err.message), Fore.RED, newline=True)
+                if module:
+                    try:
+                        class__ = '%s' % (self.tests[testcase]['class'])
+                        class_ = getattr(module, class__)
+                        for item in tests_to_run:
+                            suite.addTest(class_('test_%s' % (item)))
+                    except AttributeError as err:
+                        self.xterm_message('Unable to instantiate class - perhaps there is no valid test case defined in this file :-(\n%s' %
+                                           (str(err)), Fore.RED, newline=True)
 
         unittest.TextTestRunner(verbosity=999).run(suite)
 
@@ -307,7 +311,6 @@ if __name__ == '__main__':
     cli.python_behave = False
 
     def add_to_test_path(cli, pwd):
-        print 'add_to_test_path', pwd
         for test in os.listdir(pwd):
             if os.path.isdir(pwd + test) and not test[0] == '.':
                 add_to_test_path(cli, pwd + '/' + test)
