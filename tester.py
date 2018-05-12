@@ -73,9 +73,10 @@ class testnavigator(Cmd):
         return '/'.join(prompt.split('/')[-3:])
 
     @staticmethod
-    def xterm_message(msg, colour, oldmsg="", newline=False):
+    def xterm_message(msg, colour, oldmsg="", newline=False, style=Style.NORMAL):
         if len(oldmsg):
             sys.stdout.write('\033[%sD' % (len(oldmsg)))
+        sys.stdout.write(style)
         sys.stdout.write(colour)
         sys.stdout.write(msg)
         sys.stdout.write(Style.RESET_ALL)
@@ -230,8 +231,9 @@ class testnavigator(Cmd):
         if self.workingdir:
             os.chdir(self.test_dir)
         self._ok()
+
     def _execute_feature_files(self, args):
-        print ' feature files, args',args
+        print ' feature files, args', args
 
     def _execute_unit_tests(self, args):
         if len(self.tests) == 0:
@@ -257,6 +259,7 @@ class testnavigator(Cmd):
                 except ImportError as err:
                     self.xterm_message('Unable to import testcase file - perhaps python is battered and bruised :-(\n%s' %
                                        (err.message), Fore.RED, newline=True)
+                    self.xterm_message(traceback.format_exc(), Fore.RED, newline=True, style=Style.DIM)
 
                 try:
                     class__ = '%s' % (self.tests[testcase]['class'])
@@ -285,7 +288,7 @@ if __name__ == '__main__':
     # recursively loop arounf each sub directory adding it to the path
     def add_to_sys_path(pwd):
         have_py = False
-        for filething in os.listdir(pwd):            
+        for filething in os.listdir(pwd):
             if os.path.isdir(pwd + '/' + filething) and not filething[0] == '.':
                 add_to_sys_path(pwd + '/' + filething)
             elif filething[-3:] == '.py':
@@ -304,7 +307,7 @@ if __name__ == '__main__':
     cli.python_behave = False
 
     def add_to_test_path(cli, pwd):
-        print 'add_to_test_path',pwd
+        print 'add_to_test_path', pwd
         for test in os.listdir(pwd):
             if os.path.isdir(pwd + test) and not test[0] == '.':
                 add_to_test_path(cli, pwd + '/' + test)
