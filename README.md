@@ -6,18 +6,23 @@ Introduced in this version is the ability to test [behave](https://github.com/be
 
 The python library `Cmd2` provides the interface.
 
+The working directory will be the location where the script is executed.
+
+**IMPORTANT:** in the options testcase dir must provide the full path to the test-case directory. 
+
+**IMPORTANT:** up until now the `tester.py` file has been copied into the project itself to avoid dealing with pyenv settings having different libraries in place.
 
 ## Basic Usage:
 
 ```bash
-~/pyunittest-cli/test.py <test-case-dir>
+./tester.py <test-case-dir>
 ```
 
 
 It is possible to chain commands on the command line, e.g.
 
 ```bash
-~/pyunittest-cli/tester.py ./test "select datastore" "workingdir ../" "run"
+./tester.py ~/project/test "select datastore" "workingdir ../" "run"
 ```
 
 

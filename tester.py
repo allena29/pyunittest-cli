@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 import traceback
+import hashlib
 import importlib
 import unittest
-import argparse
 import time
 import os
 import re
 import sys
+from coverage import Coverage
 from colorama import Fore
 from colorama import Style
 from cmd2 import Cmd
@@ -27,7 +28,7 @@ class testnavigator(Cmd):
         self.testcases = []
         self.tests = {}
         self.workingdir = None
-        self.test_dir = None
+        self.testdir = None
 
         # To remove built-in commands entirely, delete their "do_*" function from the
         # cmd2.Cmd class
@@ -109,7 +110,6 @@ class testnavigator(Cmd):
         'Set the working directory when running a test'
         if os.path.exists(args):
             self.workingdir = args
-            self.test_dir = os.getcwd()
         else:
             raise RuntimeError('Unable to change to working directory')
 
@@ -184,6 +184,7 @@ class testnavigator(Cmd):
                            Fore.GREEN, oldmsg='Loading file....', newline=True)
 
     def _select_test_cases_from_directory(self, args):
+        #        self.xterm_message('Running from %s' % (os.getcwd()), Fore.CYAN, newline=True, style=Style.DIM)
         self.testcase = args
         self.tests[args] = {'class': None, 'feature': None, 'tests': [], 'tags': {}}
         regex_import = re.compile('^import unittest\s*$')
@@ -222,6 +223,7 @@ class testnavigator(Cmd):
         if self.workingdir:
             os.chdir(self.workingdir)
             sys.path.insert(0, self.workingdir)
+        self.xterm_message('Running from %s' % (os.getcwd()), Fore.CYAN, newline=True, style=Style.DIM)
         try:
             if self.python_unittest:
                 self._execute_unit_tests(args)
@@ -231,13 +233,20 @@ class testnavigator(Cmd):
             self.xterm_message(traceback.format_exc(), Fore.RED, newline=True, style=Style.DIM)
             self._error()
         if self.workingdir:
-            os.chdir(self.test_dir)
+            os.chdir(self.testdir)
         self._ok()
 
     def _execute_feature_files(self, args):
         print(' feature files, args', args)
+        raise RuntimeError('Feature Files not yet supported')
 
     def _execute_unit_tests(self, args):
+        """
+        Execute python unit test and save a basic summary into the following place.
+        $HOME/.pyunittest/hash
+
+        The test cases are executed wtih coverage enabled.
+        """
         if len(self.tests) == 0:
             for test in os.listdir('./'):
                 if test[0:5] == 'test_' and test[-3:] == '.py':
@@ -274,7 +283,11 @@ class testnavigator(Cmd):
                         self.xterm_message('Unable to instantiate class - perhaps there is no valid test case defined in this file :-(\n%s' %
                                            (str(err)), Fore.RED, newline=True)
 
+        cov = Coverage()
+        cov.start()
         unittest.TextTestRunner(verbosity=999).run(suite)
+        cov.stop()
+        cov.html_report(directory='covhtml')
 
 
 if __name__ == '__main__':
@@ -287,9 +300,11 @@ if __name__ == '__main__':
                                     (sys.argv[0], sys.argv[1]), Fore.RED, newline=True)
         sys.exit(1)
     testdir = sys.argv[1]
-
+    cli.workingdir = str(os.getcwd())
+    cli.homedir = os.environ['HOME']
     # This should be an option.
     # recursively loop arounf each sub directory adding it to the path
+
     def add_to_sys_path(pwd):
         have_py = False
         for filething in os.listdir(pwd):
@@ -302,6 +317,13 @@ if __name__ == '__main__':
     add_to_sys_path(os.getcwd())
 
     os.chdir(testdir)
+    tmp_test_dir = testdir.encode('UTF-8')
+    cli.test_hash = hashlib.sha1(tmp_test_dir).hexdigest()
+
+    if not os.path.exists(cli.homedir + '/.pyunittestcli'):
+        os.mkdir(cli.homedir + '/.pyunittestcli')
+    if not os.path.exists(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash)):
+        os.mkdir(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash))
     cli.base_dir = os.getcwd()
     sys.argv.pop(1)
     sys.path.insert(0, cli.base_dir)
@@ -311,18 +333,28 @@ if __name__ == '__main__':
     cli.python_behave = False
 
     def add_to_test_path(cli, pwd):
+        """
+        Recurse around the directory adding tests to be executed.
+
+        Each file containing tests will be added to the dictionaries so
+        that we can run all test cases immediately.
+        """
         for test in os.listdir(pwd):
-            if os.path.isdir(pwd + test) and not test[0] == '.':
+            if test == '__pycache__':
+                pass
+            elif os.path.isdir(pwd + test) and not test[0] == '.':
                 add_to_test_path(cli, pwd + '/' + test)
             elif test[0:5] == 'test_' and test[-3:] == '.py':
                 test_name = pwd + '/' + test[5:-3]
-                cli.testcases_filesys.append(test_name.replace('./', ''))
+                cli.testcases_filesys.append(test_name.replace('./', '').split('/')[-1])
                 cli.python_unittest = True
+                cli._select_test_cases_from_directory(test[5:-3])
+                cli.xterm_message('found %s%s' % (pwd, test), Fore.CYAN, newline=True, style=Style.DIM)
             elif test[-8:] == '.feature':
                 feature_name = pwd + '/' + test[:-8]
                 cli.testcases_filesys.append(feature_name.replace('./', ''))
                 cli.python_behave = True
-    add_to_test_path(cli, '.')
+    add_to_test_path(cli, cli.testdir)
 
     if cli.python_behave and cli.python_unittest:
         testnavigator.xterm_message("""Directory can only contain unittest's or feature files""", Fore.RED, newline=True)
