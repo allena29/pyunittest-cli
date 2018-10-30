@@ -188,7 +188,7 @@ class testnavigator(Cmd):
         self.testcase = args
         self.tests[args] = {'class': None, 'feature': None, 'tests': [], 'tags': {}}
         regex_import = re.compile('^import unittest\s*$')
-        regex_class = re.compile('^class (\S+)\(unittest\.TestCase\):\s*$')
+        regex_class = re.compile('^class (\S+)\(.*[tT]est.*\):\s*$')
         regex_test = re.compile('^ {4}def test_([^\(]+)\(.*:\s*$')
         found_import = False
         found_class = None
