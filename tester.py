@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 import traceback
 import hashlib
 import importlib
@@ -302,6 +303,7 @@ if __name__ == '__main__':
     testdir = sys.argv[1]
     cli.workingdir = str(os.getcwd())
     cli.homedir = os.environ['HOME']
+    cli.full_workingdir = os.path.abspath(cli.workingdir)
     # This should be an option.
     # recursively loop arounf each sub directory adding it to the path
 
@@ -316,6 +318,7 @@ if __name__ == '__main__':
             sys.path.append(pwd)
     add_to_sys_path(os.getcwd())
 
+
     os.chdir(testdir)
     tmp_test_dir = testdir.encode('UTF-8')
     cli.test_hash = hashlib.sha1(tmp_test_dir).hexdigest()
@@ -324,6 +327,17 @@ if __name__ == '__main__':
         os.mkdir(cli.homedir + '/.pyunittestcli')
     if not os.path.exists(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash)):
         os.mkdir(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash))
+
+
+    if os.path.exists(cli.homedir + '/.pyunittestcli/python_path.json'):
+        o = open(cli.homedir + '/.pyunittestcli/python_path.json')
+        j = json.loads(o.read())
+        o.close()
+        if cli.full_workingdir in j:
+            paths = j[cli.full_workingdir]
+            for path in paths:
+                sys.path.insert(0,path)
+
     cli.base_dir = os.getcwd()
     sys.argv.pop(1)
     sys.path.insert(0, cli.base_dir)
