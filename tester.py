@@ -332,7 +332,7 @@ if __name__ == '__main__':
     cli.python_unittest = False
     cli.python_behave = False
 
-    def add_to_test_path(cli, pwd):
+    def add_to_test_path(cli, pwd, recurse=True):
         """
         Recurse around the directory adding tests to be executed.
 
@@ -348,13 +348,19 @@ if __name__ == '__main__':
                 test_name = pwd + '/' + test[5:-3]
                 cli.testcases_filesys.append(test_name.replace('./', '').split('/')[-1])
                 cli.python_unittest = True
-                cli._select_test_cases_from_directory(test[5:-3])
+                if recurse:
+                    cli._select_test_cases_from_directory(test[5:-3])
                 cli.xterm_message('found %s%s' % (pwd, test), Fore.CYAN, newline=True, style=Style.DIM)
             elif test[-8:] == '.feature':
                 feature_name = pwd + '/' + test[:-8]
                 cli.testcases_filesys.append(feature_name.replace('./', ''))
                 cli.python_behave = True
-    add_to_test_path(cli, cli.testdir)
+
+
+    if len(sys.argv)>1:
+        add_to_test_path(cli, cli.testdir, recurse=False)
+    else:
+        add_to_test_path(cli, cli.testdir, recurse=True)
 
     if cli.python_behave and cli.python_unittest:
         testnavigator.xterm_message("""Directory can only contain unittest's or feature files""", Fore.RED, newline=True)
