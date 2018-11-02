@@ -290,6 +290,16 @@ class testnavigator(Cmd):
         cov.stop()
         cov.html_report(directory='covhtml')
 
+        # Remove modules
+        module_to_remove = []
+        for mod in sys.modules:
+            if hasattr(sys.modules[mod], '__file__') and sys.modules[mod].__file__[0:len(self.workingdir)] == self.workingdir:
+                module_to_remove.append(mod)
+            elif mod[0:5] == "test_":
+                module_to_remove.append(mod)
+
+        for mod in module_to_remove:
+            del sys.modules[mod]
 
 if __name__ == '__main__':
     cli = testnavigator()

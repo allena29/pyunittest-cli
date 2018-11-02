@@ -136,7 +136,7 @@ The paths should be provided as absoloute paths instead of relative paths.
 #### TODO:
 
 1. Extend to provide a basic summary after running and ~~provide a really quick/easy way of just re-running failed test cases one by one.~~
-- Support reloading code/test case after a change.
+- ~~Support reloading code/test case after a change.~~
 - Save the status of the command-line history to a file (like ipython)
 - Extended to inspect the results from the runner
 - Extend to behave test cases
