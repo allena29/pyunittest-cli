@@ -254,6 +254,7 @@ class testnavigator(Cmd):
                     self.testcase = test[5:-3]
                     self._select_test_cases_from_directory(self.testcase)
 
+        count = 0
         suite = unittest.TestSuite()
         for testcase in self.tests:
             msg = 'Testcase %s ' % (testcase)
@@ -263,7 +264,7 @@ class testnavigator(Cmd):
                 for item in self.tests[testcase]['tests']:
                     if item[0:len(args)] == args:
                         tests_to_run.append(item)
-
+                        count = count + 1
                 msg = 'Running %s tests(s)...      ' % (len(tests_to_run))
                 module = None
                 self.xterm_message(msg, Fore.MAGENTA, newline=True)
@@ -286,7 +287,7 @@ class testnavigator(Cmd):
 
         cov = Coverage()
         cov.start()
-        unittest.TextTestRunner(verbosity=999).run(suite)
+        results = unittest.TextTestRunner(verbosity=9).run(suite)
         cov.stop()
         cov.html_report(directory='covhtml')
 
@@ -300,6 +301,32 @@ class testnavigator(Cmd):
 
         for mod in module_to_remove:
             del sys.modules[mod]
+
+        for (testcase, string) in results.failures:
+            raise ValueError('we dont handle failures')
+
+        error_count = 0
+        unique_failures = {}
+        for (testcase, string) in results.errors:
+            if string not in unique_failures:
+                unique_failures[string] = []
+            unique_failures[string].append(testcase)
+            error_count = error_count + 1
+
+        if error_count == 0:
+            self.xterm_message("Run %s tests with 0 errors" % (count), Fore.GREEN, newline=True, style=Style.NORMAL)
+            return False
+        self.xterm_message("Run %s tests with %s errors" % (count, error_count), Fore.RED, newline=True, style=Style.NORMAL)
+        erridx = 0
+        for error in unique_failures:
+            erridx = erridx + 1
+            print("     %s   %s cases of the following error" % (erridx, len(unique_failures[error])))
+            for line in error.split('\n'):
+                print("          %s" % (line))
+            for test in unique_failures[error]:
+                print("            %s" % (test))
+        self.xterm_message("Run %s tests with %s errors" % (count, error_count), Fore.RED, newline=True, style=Style.NORMAL)
+
 
 if __name__ == '__main__':
     cli = testnavigator()
@@ -328,7 +355,6 @@ if __name__ == '__main__':
             sys.path.append(pwd)
     add_to_sys_path(os.getcwd())
 
-
     os.chdir(testdir)
     tmp_test_dir = testdir.encode('UTF-8')
     cli.test_hash = hashlib.sha1(tmp_test_dir).hexdigest()
@@ -338,7 +364,6 @@ if __name__ == '__main__':
     if not os.path.exists(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash)):
         os.mkdir(cli.homedir + '/.pyunittestcli/%s' % (cli.test_hash))
 
-
     if os.path.exists(cli.homedir + '/.pyunittestcli/python_path.json'):
         o = open(cli.homedir + '/.pyunittestcli/python_path.json')
         j = json.loads(o.read())
@@ -346,7 +371,7 @@ if __name__ == '__main__':
         if cli.full_workingdir in j:
             paths = j[cli.full_workingdir]
             for path in paths:
-                sys.path.insert(0,path)
+                sys.path.insert(0, path)
 
     cli.base_dir = os.getcwd()
     sys.argv.pop(1)
@@ -380,8 +405,7 @@ if __name__ == '__main__':
                 cli.testcases_filesys.append(feature_name.replace('./', ''))
                 cli.python_behave = True
 
-
-    if len(sys.argv)>1:
+    if len(sys.argv) > 1:
         add_to_test_path(cli, cli.testdir, recurse=False)
     else:
         add_to_test_path(cli, cli.testdir, recurse=True)
