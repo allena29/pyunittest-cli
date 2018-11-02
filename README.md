@@ -1,8 +1,30 @@
-# pyunittest-cli
+# pyunittest-cli (and behave)
 
 This utility is intended to simplify testing with [python's unittest](https://docs.python.org/2/library/unittest.html) by providing a simple command line interface. A key goal of the command line interface is to provide a developer fine grained control over which test cases they wish to execute.
 
+Introduced in this version is the ability to test [behave](https://github.com/behave/behave) behaviour driven feature files.
+
 The python library `Cmd2` provides the interface.
+
+The working directory will be the location where the script is executed.
+
+**IMPORTANT:** in the options testcase dir must provide the full path to the test-case directory.
+
+**IMPORTANT:** up until now the `tester.py` file has been copied into the project itself to avoid dealing with pyenv settings having different libraries in place.
+
+## Basic Usage:
+
+```bash
+./tester.py <test-case-dir>
+```
+
+
+It is possible to chain commands on the command line, e.g.
+
+```bash
+./tester.py ~/project/test "select datastore" "workingdir ../" "run"
+```
+
 
 
 ## Example
@@ -88,17 +110,42 @@ test(zzz.x)%
 
 
 
+## Options
+
+- `workingdir <>` set's the working directory to a specified path.
 
 
+## Configuration files
+
+A set of basic configuration can be provided in `$HOME/.pyunittestcli`
+
+### python_path.json
+
+This is a json file which is a dictionary where the key is a file system path from where a user will run the tests from,
+and the value is a list of paths which should be inserted into the begining of the python path (i.e. `sys.path`)
+The paths should be provided as absoloute paths instead of relative paths.
+
+```json
+{
+  "/home/user/project": [
+    "/home/user/shared-python-tools/lib"
+  ]
+}
+```
 
 #### TODO:
 
 1. Extend to provide a basic summary after running and ~~provide a really quick/easy way of just re-running failed test cases one by one.~~
-- Support reloading code/test case after a change.
+- ~~Support reloading code/test case after a change.~~
 - Save the status of the command-line history to a file (like ipython)
-- Extended to inspect the results from the runner 
+- Extended to inspect the results from the runner
 - Extend to behave test cases
 - Run pylint tests
 - ~~Allow to run all testcases files without having to select an individual file~~
-- Trends
+- Track failures so we can run specific failures
+- Ordering - influence default test order
+- Behave files - filter to run certain tags (default answer should be persisted)
+- Trends (store past results to show this run X failed since last tun, Y fixed since last run)
 - Some fuzzy logic to try decide which tests cases are most likely to fail
+- Fix auto-complete so we cannot do 'select X X X X X X X'
+- ~~Recursively include tests/features from sub-directories too.~~
