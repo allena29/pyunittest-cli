@@ -1,13 +1,30 @@
 Feature: Basic feature
 
-  Scenario:  Log on to the CLI
+  Scenario:  A basic scenario which should pass
 
-    When we open the cli with a directory 'test'
-    Then we should see the prompt 'test%'
+    When thing succeeds
+    Then thing must be ok
 
-  @tagged
-  Scenario:  Log on to the CLI
+  Scenario:  Another basic scenario which should pass
 
-    When we open the cli with a directory 'test'
-    Then we should see the prompt 'test%'
+    When thing succeeds
+    Then thing must be ok
 
+
+  Scenario:  Another basic scenario which should not pass
+
+    When thing fails
+    Then thing must be ok
+
+
+  @tagA
+  Scenario:  Another basic scenario which should pass (tag A)
+
+    When thing succeeds
+    Then thing must be ok
+
+  @tagB
+  Scenario:  Another basic scenario which should pass (tag B)
+
+    When thing succeeds
+    Then thing must be ok

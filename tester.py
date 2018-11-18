@@ -8,10 +8,47 @@ import time
 import os
 import re
 import sys
+import behave
+from behave.__main__ import run_behave
 from coverage import Coverage
 from colorama import Fore
 from colorama import Style
 from cmd2 import Cmd
+
+
+class resultswallower(unittest.TextTestResult):
+
+    separator1 = ''
+    separator2 = ''
+
+    def printErrors(self):
+        pass
+
+    def printErrorList(self, a, b):
+        pass
+
+    def startTest(self, test):
+        sys.stdout.write(Style.NORMAL)
+        sys.stdout.write(str(test))
+        sys.stdout.flush()
+
+    def addSuccess(self, test):
+        sys.stdout.write('\033[%sD' % (len(str(test))))
+        sys.stdout.write(Style.NORMAL)
+        sys.stdout.write(Fore.GREEN)
+        sys.stdout.write(str(test))
+        sys.stdout.write(Style.RESET_ALL)
+        sys.stdout.write('\n')
+
+    def addError(self, test, err):
+        sys.stdout.write('\033[%sD' % (len(str(test))))
+        sys.stdout.write(Style.NORMAL)
+        sys.stdout.write(Fore.RED)
+        sys.stdout.write(str(test))
+        sys.stdout.write(Style.DIM)
+        sys.stdout.write(str(err))
+        sys.stdout.write(Style.RESET_ALL)
+        sys.stdout.write('\n')
 
 
 class testnavigator(Cmd):
@@ -30,6 +67,7 @@ class testnavigator(Cmd):
         self.tests = {}
         self.workingdir = None
         self.testdir = None
+        self.failures = []
 
         # To remove built-in commands entirely, delete their "do_*" function from the
         # cmd2.Cmd class
@@ -75,11 +113,12 @@ class testnavigator(Cmd):
         return '/'.join(prompt.split('/')[-3:])
 
     @staticmethod
-    def xterm_message(msg, colour, oldmsg="", newline=False, style=Style.NORMAL):
+    def xterm_message(msg, colour=None, oldmsg="", newline=False, style=Style.NORMAL):
         if len(oldmsg):
             sys.stdout.write('\033[%sD' % (len(oldmsg)))
         sys.stdout.write(style)
-        sys.stdout.write(colour)
+        if colour:
+            sys.stdout.write(colour)
         sys.stdout.write(msg)
         sys.stdout.write(Style.RESET_ALL)
         if len(msg) < len(oldmsg):
@@ -160,8 +199,8 @@ class testnavigator(Cmd):
 
         feature = None
         lasttag = None
-        regex_feature = re.compile('^Feature: (\S.*)')
-        regex_scenario = re.compile('^\s*Scenario: (\S.*)')
+        regex_feature = re.compile('^Feature: (.*)')
+        regex_scenario = re.compile('^\s*Scenario: (.*)')
         regex_tag = re.compile('^\s*@(\S+)\s*$')
 
         with open('%s.feature' % (args)) as file:
@@ -181,7 +220,7 @@ class testnavigator(Cmd):
                 line = file.readline()
 
         self.prompt = 'tester(%s.%s.%s)%% ' % (self.truncate_prompt(self.testdir), args, feature)
-        self.xterm_message('Loaded %s test(s) from %s' % (len(self.tests[args]['tests']), args),
+        self.xterm_message('Loaded %s scenario(s) from %s' % (len(self.tests[args]['tests']), args),
                            Fore.GREEN, oldmsg='Loading file....', newline=True)
 
     def _select_test_cases_from_directory(self, args):
@@ -210,7 +249,7 @@ class testnavigator(Cmd):
                 line = file.readline()
 
         if found_class is None:
-            self.xterm_message('Unable to find class from the testcase file',
+            self.xterm_message('Unable to find class from the testcase file %s' % (file),
                                Fore.RED, oldmsg='Loading file....', newline=True)
             return False
 
@@ -238,8 +277,15 @@ class testnavigator(Cmd):
         self._ok()
 
     def _execute_feature_files(self, args):
-        print(' feature files, args', args)
-        raise RuntimeError('Feature Files not yet supported')
+        for test in self.tests:
+            self.xterm_message('%s' % (test))
+            config = behave.configuration.Configuration(["-f", "null", "--no-summary",
+                                                         "%s.feature" % (test)])
+            runner = behave.runner.Runner
+            result = run_behave(config, runner)
+
+            self.xterm_message('%s' % (test), Fore.GREEN, style=Style.NORMAL, oldmsg='%s' % (test))
+            print('')
 
     def _execute_unit_tests(self, args):
         """
@@ -248,6 +294,10 @@ class testnavigator(Cmd):
 
         The test cases are executed wtih coverage enabled.
         """
+        self.failures = {}
+        if hasattr(Cmd, 'do_rerun'):
+            del Cmd.do_rerun
+
         if len(self.tests) == 0:
             for test in os.listdir('./'):
                 if test[0:5] == 'test_' and test[-3:] == '.py':
@@ -293,14 +343,20 @@ class testnavigator(Cmd):
 
         # Remove modules
         module_to_remove = []
-        for mod in sys.modules:
-            if hasattr(sys.modules[mod], '__file__') and sys.modules[mod].__file__[0:len(self.workingdir)] == self.workingdir:
-                module_to_remove.append(mod)
-            elif mod[0:5] == "test_":
-                module_to_remove.append(mod)
+        for c in range(50):
+            try:
+                for mod in sys.modules:
+                    if hasattr(sys.modules[mod], '__file__') and sys.modules[mod].__file__[0:len(self.workingdir)] == self.workingdir:
+                        module_to_remove.append(mod)
+                    elif mod[0:5] == "test_":
+                        module_to_remove.append(mod)
+            except Exception as err:
+                pass
+                # We may get a RuntimeError that the dict sys.modules change size during iteration
 
         for mod in module_to_remove:
-            del sys.modules[mod]
+            if mod in sys.modules:
+                del sys.modules[mod]
 
         for (testcase, string) in results.failures:
             raise ValueError('we dont handle failures')
@@ -314,9 +370,11 @@ class testnavigator(Cmd):
             error_count = error_count + 1
 
         if error_count == 0:
-            self.xterm_message("Run %s tests with 0 errors" % (count), Fore.GREEN, newline=True, style=Style.NORMAL)
+            self.xterm_message("\n\nRun %s tests with 0 errors" % (count), Fore.GREEN, newline=True, style=Style.NORMAL)
             return False
-        self.xterm_message("Run %s tests with %s errors" % (count, error_count), Fore.RED, newline=True, style=Style.NORMAL)
+
+        self.xterm_message("\n\nRun %s tests with %s errors" % (count, error_count), Fore.RED, newline=True, style=Style.NORMAL)
+
         erridx = 0
         for error in unique_failures:
             erridx = erridx + 1
@@ -325,7 +383,28 @@ class testnavigator(Cmd):
                 print("          %s" % (line))
             for test in unique_failures[error]:
                 print("            %s" % (test))
+                cosmetic_name = str(test).split(' ')[0][5:]
+                self.failures[cosmetic_name] = str(test)
         self.xterm_message("Run %s tests with %s errors" % (count, error_count), Fore.RED, newline=True, style=Style.NORMAL)
+
+        Cmd.do_rerun = self._do_rerun
+        Cmd.complete_rerun = self._complete_rerun
+
+    def _do_rerun(self, args):
+        """re-run test cases which have recently failed."""
+        print("Not implemented - want to rerun args: ", args, "This may not be a valid test")
+
+    def _complete_rerun(self, text, line, begidx, endidx):
+        failures = []
+        if line == 'rerun ':
+            for failure in self.failures:
+                failures.append(failure)
+        else:
+            for failure in self.failures:
+                if failure[0:len(text)] == text:
+                    failures.append(failure)
+        failures.sort()
+        return failures
 
 
 if __name__ == '__main__':
@@ -387,6 +466,7 @@ if __name__ == '__main__':
 
         Each file containing tests will be added to the dictionaries so
         that we can run all test cases immediately.
+
         """
         for test in os.listdir(pwd):
             if test == '__pycache__':
@@ -399,16 +479,21 @@ if __name__ == '__main__':
                 cli.python_unittest = True
                 if recurse:
                     cli._select_test_cases_from_directory(test[5:-3])
-                cli.xterm_message('found %s%s' % (pwd, test), Fore.CYAN, newline=True, style=Style.DIM)
             elif test[-8:] == '.feature':
                 feature_name = pwd + '/' + test[:-8]
-                cli.testcases_filesys.append(feature_name.replace('./', ''))
+                cli.testcases_filesys.append(feature_name.replace('./', '').split('/')[-1])
+                if recurse:
+                    cli._select_feature_from_directory(feature_name.replace('./', '').replace('//', '/'))
                 cli.python_behave = True
 
-    if len(sys.argv) > 1:
-        add_to_test_path(cli, cli.testdir, recurse=False)
-    else:
-        add_to_test_path(cli, cli.testdir, recurse=True)
+    recurse = False
+    if len(sys.argv) == 1:
+        recurse = True
+    elif len(sys.argv) == 2 and sys.argv[-1] == 'run':
+        recurse = True
+    elif len(sys.argv) == 3 and sys.argv[-2] == 'run' and sys.argv[-1] == 'exit':
+        recurse = True
+    add_to_test_path(cli, cli.testdir, recurse=recurse)
 
     if cli.python_behave and cli.python_unittest:
         testnavigator.xterm_message("""Directory can only contain unittest's or feature files""", Fore.RED, newline=True)
